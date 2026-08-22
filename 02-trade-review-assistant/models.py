@@ -1,5 +1,5 @@
 def prase_trade_input(raw_input: str) -> dict:
-    raw_input = raw_input.replace("， ", ",").replace("；", ";")
+    raw_input = raw_input.replace("，", ",").replace("；", ";")
     fields = raw_input.split(",")
 
     if len(fields) != 4:
@@ -9,9 +9,14 @@ def prase_trade_input(raw_input: str) -> dict:
     try:
         sell_price = float(fields[2])
         buy_price = float(fields[1])
+    except ValueError:
+        raise ValueError("买入价和卖出价必须是数字")
+        
+
+    try:
         quantity = int(fields[3])
     except ValueError:
-        raise ValueError("买入价和卖出价必须是数字，数量必须是整数")
+        raise ValueError("数量必须是整数")
 
     if stock == "":
         raise ValueError("股票名不能为空")
