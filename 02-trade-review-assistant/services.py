@@ -1,20 +1,22 @@
-def calculate_total_profit(trades:list) -> float:
+from models import Trade
+
+def calculate_total_profit(trades:list[Trade]) -> float:
     total_profit = 0
     for trade in trades:
-        total_profit += trade["profit"]
+        total_profit += trade.profit
     return total_profit
 
-def calculate_win_rate(trades:list) -> float:
+def calculate_win_rate(trades:list[Trade]) -> float:
     win_count = 0
     for trade in trades:
-        if trade["profit"] > 0:
+        if trade.profit > 0:
             win_count += 1
 
     win_rate = win_count / len(trades) if trades else 0
     return win_rate
 
-def find_highest_profit_trade(trades:list) -> dict | None:
+def find_highest_profit_trade(trades:list) -> Trade | None:
     if not trades:
         return None
-    highest_profit_trade = sorted(trades, key=lambda x: x["profit"], reverse=True)[0]
+    highest_profit_trade = sorted(trades, key=lambda trade: trade.profit, reverse=True)[0]
     return highest_profit_trade

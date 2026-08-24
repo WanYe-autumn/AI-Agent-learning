@@ -1,11 +1,21 @@
 import pytest
+from models import Trade
 from services import (calculate_total_profit, calculate_win_rate, find_highest_profit_trade)
+
+def make_trade(profit: float, stock: str = "test") -> Trade:
+    return Trade(
+        stock=stock,
+        buy_price=1.0,
+        sell_price=1.0,
+        quantity=1,
+        profit=profit
+    )
 
 def test_calculate_total_profit_with_mixed_results() -> None:
     trades = [
-        {"profit": 600.0},
-        {"profit": -300.0},
-        {"profit": 0.0}
+        make_trade(600.0),
+            make_trade(-300.0),
+            make_trade(0.0)
     ]
 
     result = calculate_total_profit(trades)
@@ -19,10 +29,10 @@ def test_calculate_total_profit_with_empty_list() -> None:
 
 def test_calculate_win_rate_with_mixed_results() -> None:
     trades = [
-            {"profit": 600.0},
-            {"profit": -300.0},
-            {"profit": 0.0}
-        ]
+    make_trade(600.0),
+    make_trade(-300.0),
+    make_trade(0.0)
+]
 
     result = calculate_win_rate(trades)
 
@@ -35,24 +45,24 @@ def test_calculate_win_rate_with_empty_list() -> None:
 
 def test_find_highest_profit_trade_with_mixed_results() -> None:
     trades = [
-        {"stock":"beone","profit":600.0},
-        {"stock":"alibaba","profit":-300.0},
-        {"stock":"skhy","profit":0.0}
+        make_trade(600.0, stock="beone"),
+        make_trade(-300.0, stock="alibaba"),
+        make_trade(0.0, stock="skhy")
     ]
 
     result = find_highest_profit_trade(trades)
 
-    assert result == {"stock":"beone","profit":600.0}
+    assert result == make_trade(600.0, stock="beone")
 
 def test_find_highest_profit_trade_with_all_losses() -> None:
     trades = [
-        {"stock": "alibaba", "profit": -300.0},
-        {"stock": "skhy", "profit": -100.0}
+        make_trade(-300.0, stock="alibaba"),
+                make_trade(0.0, stock="skhy")
     ]
 
     result = find_highest_profit_trade(trades)
 
-    assert result == {"stock": "skhy", "profit": -100.0}
+    assert result == make_trade(0.0, stock="skhy")
 
 
 def test_find_highest_profit_trade_with_empty_list() -> None:

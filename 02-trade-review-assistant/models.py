@@ -1,4 +1,14 @@
-def prase_trade_input(raw_input: str) -> dict:
+from dataclasses import dataclass
+
+@dataclass
+class Trade:
+    stock: str
+    buy_price: float
+    sell_price: float
+    quantity: int
+    profit: float
+
+def prase_trade_input(raw_input: str) -> Trade:
     raw_input = raw_input.replace("，", ",").replace("；", ";")
     fields = raw_input.split(",")
 
@@ -28,10 +38,10 @@ def prase_trade_input(raw_input: str) -> dict:
         raise ValueError("数量必须大于零")
 
     profit = (sell_price - buy_price) * quantity
-    return {
-        "stock": stock,
-        "buy_price": buy_price,
-        "sell_price": sell_price,
-        "quantity": quantity,
-        "profit": profit
-    }
+    return Trade(
+    stock=stock,
+    buy_price=buy_price,
+    sell_price=sell_price,
+    quantity=quantity,
+    profit=profit
+)

@@ -3,6 +3,9 @@ from services import calculate_total_profit
 from services import calculate_win_rate
 from services import find_highest_profit_trade
 from io_utils import save_report_to_json
+
+from dataclasses import asdict
+
 def main() -> None:
     print("交易记录分析器 V0.1")
     trades = []
@@ -35,10 +38,10 @@ def main() -> None:
     print(f"最高盈利{highest_profit}")
 
     report = {
-    "trades": trades,
+    "trades": [asdict(trade) for trade in trades],
     "total_profit": total_profit,
     "win_rate": win_rate,
-    "highest_profit_trade": highest_profit
+    "highest_profit_trade": [asdict(highest_profit) if highest_profit else None]
 }
 
     save_report_to_json(report)

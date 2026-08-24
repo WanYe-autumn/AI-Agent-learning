@@ -1,6 +1,7 @@
 import pytest
 
-from  models import prase_trade_input
+from  models import Trade,prase_trade_input
+from dataclasses import asdict
 
 @pytest.mark.parametrize(
     "raw_input,expected",
@@ -43,7 +44,8 @@ def test_parse_trade_input_with_valid_input(
     expected:dict
 )   -> None:
     result = prase_trade_input(raw_input)
-    assert result == expected
+    assert isinstance(result, Trade)
+    assert asdict(result) == expected
 
 @pytest.mark.parametrize(
     "raw_input, expected_message",
