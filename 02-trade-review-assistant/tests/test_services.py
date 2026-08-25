@@ -1,6 +1,6 @@
 import pytest
 from models import Trade
-from services import (calculate_total_profit, calculate_win_rate, find_highest_profit_trade)
+from services import (calculate_total_profit, calculate_win_rate, find_highest_profit_trade,find_trade_by_number,delete_trade_by_number)
 
 def make_trade(profit: float, stock: str = "test") -> Trade:
     return Trade(
@@ -69,3 +69,49 @@ def test_find_highest_profit_trade_with_empty_list() -> None:
     result = find_highest_profit_trade([])
 
     assert result is None
+
+
+def test_find_trade_by_number() -> None:
+    trades = [
+        make_trade(600.0, stock="beone"),
+        make_trade(-300.0, stock="alibaba")
+    ]
+
+    result = find_trade_by_number(trades, 2)
+
+    assert result == trades[1]
+
+
+def test_find_trade_by_invalid_number() -> None:
+    trades = [
+        make_trade(600.0, stock="beone")
+    ]
+
+    result = find_trade_by_number(trades, 2)
+
+    assert result is None
+
+
+def test_delete_trade_by_number() -> None:
+    trades = [
+        make_trade(600.0, stock="beone"),
+        make_trade(-300.0, stock="alibaba")
+    ]
+
+    deleted_trade = delete_trade_by_number(trades, 1)
+
+    assert deleted_trade is not None
+    assert deleted_trade.stock == "beone"
+    assert len(trades) == 1
+    assert trades[0].stock == "alibaba"
+
+
+def test_delete_trade_by_invalid_number() -> None:
+    trades = [
+        make_trade(600.0, stock="beone")
+    ]
+
+    deleted_trade = delete_trade_by_number(trades, 2)
+
+    assert deleted_trade is None
+    assert len(trades) == 1

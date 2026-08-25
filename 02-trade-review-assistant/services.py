@@ -20,3 +20,23 @@ def find_highest_profit_trade(trades:list) -> Trade | None:
         return None
     highest_profit_trade = sorted(trades, key=lambda trade: trade.profit, reverse=True)[0]
     return highest_profit_trade
+
+def find_trade_by_number(                                                                                       #查询
+        trades: list[Trade],
+        number:int
+) -> Trade | None:
+    if number < 1 or number > len(trades):
+        return None
+
+    return trades[number - 1]       
+
+def delete_trade_by_number(                                                                                     #删除
+        trades: list[Trade],
+        number: int
+) -> Trade | None:
+    if number < 1 or number > len(trades):
+        return None
+
+    return trades.pop(number - 1)
+
+                                                                                                
