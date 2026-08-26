@@ -38,7 +38,7 @@ def display_trades(trades: list[Trade]) -> None:
         )
 
 def main() -> None:
-    print("交易记录分析器 V0.1")
+    print("交易记录分析器 V0.2")
 
     trades = load_trades_from_json()
     print(f"已加载{len(trades)}条历史记录")
@@ -119,19 +119,19 @@ def main() -> None:
            print("没有有效的交易记录")
            return
 
-        total_profit = calculate_total_profit(trades)
-        print(f"总盈亏: {total_profit}")
+    total_profit = calculate_total_profit(trades)
+    print(f"总盈亏: {total_profit}")
 
-        win_rate = calculate_win_rate(trades)
-        print(f"胜率: {win_rate:.2%}")
+    win_rate = calculate_win_rate(trades)
+    print(f"胜率: {win_rate:.2%}")
 
-        highest_profit = find_highest_profit_trade(trades)
-        print(f"最高盈利{highest_profit}")
+    highest_profit = find_highest_profit_trade(trades)
+    print(f"最高盈利{highest_profit}")
 
-        report = build_report(trades)
+    report = build_report(trades)
 
-        save_report_to_json(report)
-        print("报告已保存至 trade_report.json")
+    save_report_to_json(report)
+    print("报告已保存至 trade_report.json")
 
 if __name__ == "__main__":
     main()
