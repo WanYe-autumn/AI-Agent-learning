@@ -173,3 +173,39 @@ python -m pytest -v -k test_patch_price_422
 5. 环境配置、日志、Docker Compose、CI 和完整运行说明。
 
 当前项目仍使用 SQLite，上述工程化能力为后续计划，尚未实现。
+
+# Library Book API
+
+基于 FastAPI、SQLAlchemy 和 PostgreSQL 开发的图书借阅 API。
+
+## 功能
+
+- 图书增删改查
+- 用户注册与密码哈希
+- JWT 登录认证
+- 图书借阅与归还
+- 用户只能查看自己的借阅记录
+- Alembic 数据库迁移
+- pytest 接口测试
+- Docker Compose 一键启动
+- GitHub Actions 自动测试
+
+## 技术栈
+
+- Python 3.12
+- FastAPI
+- SQLAlchemy
+- PostgreSQL
+- Alembic
+- pytest
+- Docker Compose
+- GitHub Actions
+
+## 使用 Docker Compose 启动
+
+### 1. 准备环境变量
+
+复制示例配置：
+
+```bash
+cp .env.example .env
