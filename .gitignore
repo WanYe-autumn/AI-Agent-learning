@@ -5,3 +5,4 @@ __pycache__/
 *.pyc
 trade_report.json
 .pytest_cache/
+*.db

@@ -1,23 +1,58 @@
 from fastapi.testclient import TestClient
 from app import app
-from models import Book
-from database import init_db,add_book_to_db,borrow_book_from_db
+# from database import init_db,add_book_to_db
 import pytest
+import os
+from sqlalchemy import create_engine
+from sqlalchemy.orm import Session
+from orm_demo import Base, get_session, BookORM
+
+TEST_DATABASE_URL = os.environ["TEST_DATABASE_URL"]
+test_engine = create_engine(TEST_DATABASE_URL)
 
 @pytest.fixture
-def test_db(tmp_path,monkeypatch):
-    db_path = tmp_path / "test.db"
+def test_db():
+    Base.metadata.drop_all(test_engine)
+    Base.metadata.create_all(test_engine)
 
-    init_db(db_path)
+    yield test_engine
 
-    monkeypatch.setattr("app.DB_PATH", str(db_path))
-
-    return db_path
+    Base.metadata.drop_all(test_engine)
 
 @pytest.fixture
 def client(test_db):
+    def override_get_session():
+        with Session(test_engine) as session:
+            yield session
+
+    app.dependency_overrides[get_session] = override_get_session
+
     with TestClient(app) as test_client:
         yield test_client
+
+    app.dependency_overrides.clear()
+
+@pytest.fixture
+def create_book(test_db):
+    def _create_book(
+        title="Python",
+        author="A",
+        price=88.0,
+        borrowed=False,
+    ):
+        with Session(test_engine) as session:
+            book = BookORM(
+                title=title,
+                author=author,
+                price=price,
+                borrowed=borrowed,
+            )
+            session.add(book)
+            session.commit()
+            session.refresh(book)
+            return book.id
+
+    return _create_book
 
 def test_books(client):
     response = client.get("/books")
@@ -25,18 +60,19 @@ def test_books(client):
     assert response.status_code == 200
     assert response.json() == []
 
-def test_get_books_by_id_a(test_db,client):
-    book = Book(title="haha",author="zuojia1",price=30,borrowed=True)
-    add_book_to_db(book, test_db)
-    response = client.get("/books/1")
-    
+def test_get_books_by_id_a(client, create_book):
+    book_id = create_book(title="haha", author="zuojia1", price=30.0, borrowed=True)
+
+    # 再请求刚才创建的书
+    response = client.get(f"/books/{book_id}")
+    data = response.json()
+
     assert response.status_code == 200
-    assert response.json() == {
-        "title": "haha",
-        "author": "zuojia1",
-        "price": 30.0,
-        "borrowed": True
-    }
+    assert data["id"] == book_id
+    assert data["title"] == "haha"
+    assert data["author"] == "zuojia1"
+    assert data["price"] == 30.0
+    assert data["borrowed"] is True
 
 def test_get_book_not_found(test_db,client):
     response = client.get("/books/999")
@@ -44,32 +80,49 @@ def test_get_book_not_found(test_db,client):
     assert response.status_code == 404
 
 def test_query_parameter_true(test_db,client):
-    book = Book(title="haha",author="zuojia1",price=30,borrowed=True)
-    add_book_to_db(book, test_db)
+    with Session(test_engine) as session:
+        book = BookORM(
+        title="haha",
+        author="zuojia1",
+        price=30.0,
+        borrowed=True,
+    )
+
+        session.add(book)
+        session.commit()
+        session.refresh(book)
+
+        book_id = book.id
+
     response = client.get("/books?borrowed=true")
 
     assert response.status_code == 200
     assert response.json() == [{
+        "id": book_id,
         "title": "haha",
         "author": "zuojia1",
         "price": 30.0,
-        "borrowed": True
+        "borrowed": True,
+        "description": None
     }]
 
-def test_query_parameter_false(test_db,client):
-    book = Book(title="haha",author="zuojia1",price=30,borrowed=False)
-    add_book_to_db(book, test_db)
+def test_query_parameter_false(client, create_book):
+    book_id = create_book(title="haha", author="zuojia1", price=30.0, borrowed=False)
+
     response = client.get("/books?borrowed=false")
 
     assert response.status_code == 200
     assert response.json() == [{
+        "id": book_id,
         "title": "haha",
         "author": "zuojia1",
         "price": 30.0,
-        "borrowed": False
+        "borrowed": False,
+        "description": None
     }]
 
-def test_post_create_book(test_db,client):
+def test_post_create_book(client, test_db):
+
     response = client.post(
     "/books",
     json={
@@ -79,19 +132,30 @@ def test_post_create_book(test_db,client):
     }
 )
     assert response.status_code == 200
-    assert response.json() == {
+
+    data = response.json()
+    book_id = data["id"]
+
+    assert data == {
+    "id": book_id,
     "title": "Python",
     "author": "A",
     "price": 88.0,
-    "borrowed": False
+    "borrowed": False,
+    "description": None
 }
+
     get_response = client.get("/books")
+
+    assert get_response.status_code == 200
     assert get_response.json() ==  [
     {
+        "id": book_id,
         "title": "Python",
         "author": "A",
         "price": 88.0,
-        "borrowed": False
+        "borrowed": False,
+        "description": None
     }
 ]
 
@@ -117,11 +181,16 @@ def test_post_create_book_yichang2(test_db,client):
     assert response.status_code == 422
 
 def test_post_create_book_yichang3(test_db,client):
-    book = Book(title="haha",author="zuojia1",price=30,borrowed=False)
-    add_book_to_db(book, test_db)
+    book = BookORM(title="haha",author="zuojia1",price=30,borrowed=False)
+    with Session(test_engine) as session:
+        session.add(book)
+        session.commit()
+        session.refresh(book)
+        book_id = book.id
     response = client.post(
         "/books",
         json={
+            "id": book_id,
             "title": "haha",
             "author": "zuojia1",
             "price": 30
@@ -129,34 +198,43 @@ def test_post_create_book_yichang3(test_db,client):
     )
     assert response.status_code == 409
 
-def test_patch_update_book(test_db,client):
-    book = Book(title="haha",author="zuojia1",price=30,borrowed=False)
-    add_book_to_db(book, test_db)
+def test_patch_update_book(create_book,client):
+    book_id = create_book(title="haha", author="zuojia1", price=30, borrowed=False)
+
     response = client.patch(
-        "/books/1",
+        f"/books/{book_id}",
         json={
             "title": "djh"
         }
     )
     assert response.status_code == 200
     assert response.json() == {
-        "book_id": 1,
-        "update": {
-        "title": "djh"
-        }
-    }
-    get_response = client.get("/books/1")
-
-    assert get_response.json() == {
+        "id": book_id,
         "title": "djh",
         "author": "zuojia1",
         "price": 30,
-        "borrowed": False
+        "borrowed": False,
+        "description": None
+    }
+
+    get_response = client.get(f"/books/{book_id}")
+
+    assert get_response.status_code == 200
+    assert get_response.json() == {
+        "id": book_id,
+        "title": "djh",
+        "author": "zuojia1",
+        "price": 30,
+        "borrowed": False,
+        "description": None
     }
 
 def test_delete_book(test_db,client):
-    book = Book(title="hahaha", author="djh", price=30, borrowed=True)
-    add_book_to_db(book, test_db)
+    book = BookORM(title="hahaha", author="djh", price=30, borrowed=True)
+    with Session(test_engine) as session:
+        session.add(book)
+        session.commit()
+        session.refresh(book)
     response = client.delete(
         "books/1",
     )
@@ -169,12 +247,15 @@ def test_delete_book_404(test_db,client):
     assert response.status_code == 404
 
 def test_patch_price_200(test_db,client):
-    book=Book(title="niulai", author="djh", price="77.0", borrowed=False)
-    add_book_to_db(book,test_db)
+    book=BookORM(title="niulai", author="djh", price="77.0", borrowed=False)
+    with Session(test_engine) as session:
+        session.add(book)
+        session.commit()
+        session.refresh(book)
     response = client.patch(
         "/books/1/price",
         json={"price":666})
-    
+
     assert response.status_code == 200
     get_response = client.get("/books/1")
     assert get_response.status_code == 200
@@ -193,14 +274,17 @@ def test_patch_price_404(client,test_db):
     response = client.patch(
         "/books/999/price",
         json={"price":600})
-    
+
     assert response.status_code == 404
 
 def test_patch_price_409(test_db,client):
-    book=Book(title="niulai", author="djh", price="77.0", borrowed=True)
-    add_book_to_db(book,test_db)
+    book=BookORM(title="niulai", author="djh", price="77.0", borrowed=True)
+    with Session(test_engine) as session:
+        session.add(book)
+        session.commit()
+        session.refresh(book)
     response = client.patch(
         "/books/1/price",
         json={"price":600})
-    
+
     assert response.status_code == 409
