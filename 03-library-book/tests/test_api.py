@@ -5,7 +5,9 @@ import pytest
 import os
 from sqlalchemy import create_engine
 from sqlalchemy.orm import Session
-from orm_demo import Base, get_session, BookORM
+from orm_demo import Base, get_session, BookORM, UserORM, BorrowRecordORM
+from security import create_access_token
+from datetime import datetime, timezone
 
 TEST_DATABASE_URL = os.environ["TEST_DATABASE_URL"]
 test_engine = create_engine(TEST_DATABASE_URL)
@@ -53,6 +55,42 @@ def create_book(test_db):
             return book.id
 
     return _create_book
+
+# @pytest.fixture
+# def create_user(test_db):
+#     def _create_user(username="testuser", password_hash="hashedpassword"):
+#         with Session(test_engine) as session:
+#             user = UserORM(
+#                 username=username,
+#                 password_hash=password_hash,
+#             )
+#             session.add(user)
+#             session.commit()
+#             session.refresh(user)
+#             return user.id
+
+#     token = create_access_token(user.id)
+
+#     return {
+#     "id": user.id,
+#     "headers": {
+#         "Authorization": f"Bearer {token}",
+#     },
+# }
+@pytest.fixture
+def create_user(test_db):
+    def _create_user(username="testuser", password_hash="hashedpassword"):
+        with Session(test_engine) as session:
+            user = UserORM(
+                username=username,
+                password_hash=password_hash,
+            )
+            session.add(user)
+            session.commit()
+            session.refresh(user)
+            return user.id
+
+    return _create_user
 
 def test_books(client):
     response = client.get("/books")
@@ -288,3 +326,181 @@ def test_patch_price_409(test_db,client):
         json={"price":600})
 
     assert response.status_code == 409
+
+def test_get_first_page_of_books(
+    client,
+    create_book,
+    create_user,
+):
+    user_id = create_user()
+
+    book_ids = [
+        create_book(
+            title=f"Book {i + 1}",
+            author="Author",
+            price=10.0,
+            borrowed=True,
+        )
+        for i in range(3)
+    ]
+
+    with Session(test_engine) as session:
+        for book_id in book_ids:
+            record = BorrowRecordORM(
+                book_id=book_id,
+                user_id=user_id,
+                borrow_date=datetime.now(timezone.utc),
+                return_date=None,
+            )
+            session.add(record)
+
+        session.commit()
+
+    token = create_access_token(user_id)
+
+    response = client.get(
+        "/users/me/books?limit=2&offset=0",
+        headers={
+            "Authorization": f"Bearer {token}",
+        },
+    )
+
+    assert response.status_code == 200
+
+    data = response.json()
+
+    assert len(data) == 2
+    assert data[0]["id"] == book_ids[2]
+    assert data[1]["id"] == book_ids[1]
+
+def test_get_next_page_of_books(
+    client,
+    create_book,
+    create_user,
+):
+    user_id = create_user()
+
+    book_ids = [
+        create_book(
+            title=f"Book {i + 1}",
+            author="Author",
+            price=10.0,
+            borrowed=True,
+        )
+        for i in range(3)
+    ]
+
+    with Session(test_engine) as session:
+        for book_id in book_ids:
+            record = BorrowRecordORM(
+                book_id=book_id,
+                user_id=user_id,
+                borrow_date=datetime.now(timezone.utc),
+                return_date=None,
+            )
+            session.add(record)
+
+        session.commit()
+
+    token = create_access_token(user_id)
+
+    response = client.get(
+        "/users/me/books?limit=2&offset=2",
+        headers={
+            "Authorization": f"Bearer {token}",
+        },
+    )
+
+    assert response.status_code == 200
+
+    data = response.json()
+
+    assert len(data) == 1
+    assert data[0]["id"] == book_ids[0]
+
+@pytest.mark.parametrize(
+    "query_string",
+    [
+        "limit=0&offset=0",
+        "limit=101&offset=0",
+        "limit=20&offset=-1",
+    ],
+)
+def test_get_my_books_invalid_parameters(
+    client,
+    create_user,
+    query_string,
+):
+    user_id = create_user()
+    token = create_access_token(user_id)
+
+    response = client.get(
+        f"/users/me/books?{query_string}",
+        headers={
+            "Authorization": f"Bearer {token}",
+        },
+    )
+
+    assert response.status_code == 422
+
+def test_get_my_books_without_login(client):
+    response = client.get(
+        "/users/me/books?limit=20&offset=0"
+    )
+
+    assert response.status_code == 401
+
+def test_other_users_books_are_not_visible(
+    client,
+    create_book,
+    create_user,
+):
+    user_a_id = create_user(username="user_a")
+    user_b_id = create_user(username="user_b")
+
+    book_a_id = create_book(
+        title="User A Book",
+        author="Author A",
+        price=10.0,
+        borrowed=True,
+    )
+    book_b_id = create_book(
+        title="User B Book",
+        author="Author B",
+        price=20.0,
+        borrowed=True,
+    )
+
+    with Session(test_engine) as session:
+        session.add_all([
+            BorrowRecordORM(
+                book_id=book_a_id,
+                user_id=user_a_id,
+                borrow_date=datetime.now(timezone.utc),
+                return_date=None,
+            ),
+            BorrowRecordORM(
+                book_id=book_b_id,
+                user_id=user_b_id,
+                borrow_date=datetime.now(timezone.utc),
+                return_date=None,
+            ),
+        ])
+        session.commit()
+
+    token = create_access_token(user_a_id)
+
+    response = client.get(
+        "/users/me/books?limit=20&offset=0",
+        headers={
+            "Authorization": f"Bearer {token}",
+        },
+    )
+
+    assert response.status_code == 200
+
+    data = response.json()
+
+    assert len(data) == 1
+    assert data[0]["id"] == book_a_id
+    assert data[0]["id"] != book_b_id

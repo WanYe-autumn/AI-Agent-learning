@@ -1,4 +1,4 @@
-from fastapi import FastAPI,HTTPException,Depends
+from fastapi import FastAPI,HTTPException,Depends,Query
 from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
 from orm_demo import BookORM,get_session,UserORM,BorrowRecordORM
 from datetime import datetime, timezone
@@ -65,6 +65,7 @@ class BorrowRecordRead(BaseModel):
     user_id: int
     borrow_date: datetime
     return_date: datetime | None
+
 
 # 查看自己的全部借阅记录，包括已归还的历史记录
 @app.get("/borrow-records", response_model=list[BorrowRecordRead])
@@ -333,3 +334,26 @@ def update_book_borrowed(book_id:int, book_update: BookBorrowedUpdate, session: 
 
     session.refresh(book)
     return book
+
+@app.get("/users/me/books")  # 查看自己借的书
+def get_my_books(
+    session: Session = Depends(get_session),
+    current_user: UserORM = Depends(get_current_user),
+    limit: int = Query(default=20, ge=1, le=100),
+    offset: int = Query(default=0, ge=0),
+):
+    statement = (
+        select(BookORM).join(
+    BorrowRecordORM,
+    BorrowRecordORM.book_id == BookORM.id,
+        )
+        .where(BorrowRecordORM.user_id == current_user.id,
+               BorrowRecordORM.return_date.is_(None)
+                )
+        .order_by(BorrowRecordORM.id.desc())
+        .limit(limit)
+        .offset(offset)
+    )
+
+    books = session.scalars(statement).all()
+    return books
