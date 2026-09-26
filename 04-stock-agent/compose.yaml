@@ -1,0 +1,16 @@
+services:
+  mysql:
+    image: mysql:8.4
+    container_name: stock-mysql
+    environment:
+      MYSQL_DATABASE: stock_agent
+      MYSQL_USER: stock_user
+      MYSQL_PASSWORD: stock_dev_123
+      MYSQL_ROOT_PASSWORD: root_dev_123
+    ports:
+      - "3307:3306"
+    volumes:
+      - stock_mysql_data:/var/lib/mysql
+
+volumes:
+  stock_mysql_data:
